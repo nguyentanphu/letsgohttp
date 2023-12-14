@@ -12,7 +12,7 @@ import (
 
 var sessionStoreName = "Session-Store"
 
-type templateData struct {
+type snippetTemplateData struct {
 	Snippets []*models.Snippet
 	Snippet  *models.Snippet
 	Form     snippetCreateForm
@@ -25,7 +25,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		app.serverError(w, err)
 		return
 	}
-	templateData := templateData{
+	templateData := snippetTemplateData{
 		Snippets: snippets,
 	}
 	app.render(w, http.StatusOK, "home.tmpl.html", templateData)
@@ -51,7 +51,7 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	if flashes := session.Flashes(); len(flashes) > 0 {
 		flash = flashes[0].(string)
 	}
-	templateData := templateData{
+	templateData := snippetTemplateData{
 		Snippet: snippet,
 		Flash:   flash,
 	}
@@ -60,7 +60,7 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 }
 
 type snippetCreateForm struct {
-	Title       string            `validate:"required,max=100,min=3" schema:"title"`
+	Title       string            `validate:"required,max=100" schema:"title"`
 	Content     string            `validate:"required" schema:"content"`
 	Expires     int               `validate:"oneof=1 7 365" schema:"expires"`
 	FieldErrors map[string]string `form:"-"`
@@ -97,7 +97,7 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 				form.FieldErrors[fe.Field()] = snippetErrorMessage(fe)
 			}
 		}
-		data := templateData{Form: form}
+		data := snippetTemplateData{Form: form}
 		app.render(w, http.StatusUnprocessableEntity, "create.tmpl.html", data)
 		return
 	}
@@ -115,7 +115,7 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) snippetCreateForm(w http.ResponseWriter, r *http.Request) {
-	data := templateData{
+	data := snippetTemplateData{
 		Form: snippetCreateForm{
 			Expires: 365,
 		}}
