@@ -3,9 +3,9 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"github.com/go-playground/validator/v10"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/schema"
-	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"html/template"
 	"letsgohttp/internal/models"
@@ -22,6 +22,7 @@ type application struct {
 	templateCache map[string]*template.Template
 	formDecoder   *schema.Decoder
 	sessionStore  *sessions.CookieStore
+	validate      *validator.Validate
 }
 
 func main() {
@@ -44,16 +45,19 @@ func main() {
 		errorLog.Fatal(err)
 	}
 
-	store := sessions.NewCookieStore(securecookie.GenerateRandomKey(32))
-
+	store := sessions.NewCookieStore([]byte("super-secret"))
+	userModel := models.UserModel{DB: db}
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	validate.RegisterValidation("uniq_email", userModel.UniqueEmailValidator)
 	app := &application{
 		errorLog:      errorLog,
 		infoLog:       infoLog,
 		snippets:      &models.SnippetModel{DB: db},
-		users:         &models.UserModel{DB: db},
+		users:         &userModel,
 		templateCache: templateCache,
 		formDecoder:   schema.NewDecoder(),
 		sessionStore:  store,
+		validate:      validate,
 	}
 
 	srv := http.Server{
