@@ -41,10 +41,6 @@ func (userModel *UserModel) Insert(name, email, password string) error {
 	return nil
 }
 
-func (userModel *UserModel) Exists(id int) (bool, error) {
-	return false, nil
-}
-
 func (userModel *UserModel) Authenticate(email, password string) (int, error) {
 	var id int
 	var hassedPassword []byte
@@ -77,4 +73,11 @@ func (userModel *UserModel) emailExists(email string) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (m *UserModel) Exists(id int) (bool, error) {
+	var exists bool
+	stmt := "SELECT EXISTS(SELECT true FROM users WHERE id = ?)"
+	err := m.DB.QueryRow(stmt, id).Scan(&exists)
+	return exists, err
 }

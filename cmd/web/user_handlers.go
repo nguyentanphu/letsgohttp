@@ -14,15 +14,9 @@ type userSignupForm struct {
 	FieldErrors map[string]string `schema:"-"`
 }
 
-type userTemplateData struct {
-	Form  any
-	Flash string
-}
-
 func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
-	data := userTemplateData{
-		Form: userSignupForm{},
-	}
+	data := app.newTemplateData(r, w)
+	data.Form = userSignupForm{}
 
 	app.render(w, http.StatusOK, "signup.tmpl.html", data)
 }
@@ -58,15 +52,17 @@ func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 					form.FieldErrors[fe.Field()] = userSignUpErrorMessage(fe)
 				}
 			}
-			data := userTemplateData{Form: form}
+			data := app.newTemplateData(r, w)
+			data.Form = form
 			app.render(w, http.StatusUnprocessableEntity, "signup.tmpl.html", data)
 		}
 		return
 	}
 
 	app.users.Insert(form.Name, form.Email, form.Password)
-	session, _ := app.sessionStore.Get(r, sessionStoreName)
+	session, _ := app.sessionStore.Get(r, sessionName)
 	session.AddFlash("Your signup was successful. Please log in.")
+	session.Save(r, w)
 	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
 
@@ -78,9 +74,8 @@ type userLoginForm struct {
 }
 
 func (app *application) userLogin(w http.ResponseWriter, r *http.Request) {
-	data := userTemplateData{
-		Form: userLoginForm{},
-	}
+	data := app.newTemplateData(r, w)
+	data.Form = userLoginForm{}
 	app.render(w, http.StatusOK, "login.tmpl.html", data)
 }
 
@@ -103,6 +98,8 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	data := app.newTemplateData(r, w)
+	data.Form = &form
 	err = app.validate.Struct(form)
 	if err != nil {
 		var validErr validator.ValidationErrors
@@ -112,7 +109,6 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 					form.FieldErrors[fe.Field()] = userLoginErrorMessage(fe)
 				}
 			}
-			data := userTemplateData{Form: form}
 			app.render(w, http.StatusUnprocessableEntity, "login.tmpl.html", data)
 		}
 		return
@@ -122,20 +118,19 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, models.ErrInvalidCredentials) {
 			form.NonFieldErrors = append(form.NonFieldErrors, "Email or password is incorrect")
-			data := userTemplateData{Form: form}
 			app.render(w, http.StatusUnprocessableEntity, "login.tmpl.html", data)
 		} else {
 			app.serverError(w, err)
 		}
 		return
 	}
-	session, _ := app.sessionStore.Get(r, sessionStoreName)
-	session.Values["authenticatedUserID"] = id
+	session, _ := app.sessionStore.Get(r, sessionName)
+	session.Values[authUserIdKey] = id
 	session.Save(r, w)
 	http.Redirect(w, r, "/snippet/create", http.StatusSeeOther)
 }
 func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
-	session, err := app.sessionStore.Get(r, sessionStoreName)
+	session, err := app.sessionStore.Get(r, sessionName)
 	if err != nil {
 		app.clientError(w, http.StatusBadRequest)
 		return

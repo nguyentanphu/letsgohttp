@@ -49,13 +49,15 @@ func main() {
 	userModel := models.UserModel{DB: db}
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterValidation("uniq_email", userModel.UniqueEmailValidator)
+	formDecoder := schema.NewDecoder()
+	formDecoder.IgnoreUnknownKeys(true)
 	app := &application{
 		errorLog:      errorLog,
 		infoLog:       infoLog,
 		snippets:      &models.SnippetModel{DB: db},
 		users:         &userModel,
 		templateCache: templateCache,
-		formDecoder:   schema.NewDecoder(),
+		formDecoder:   formDecoder,
 		sessionStore:  store,
 		validate:      validate,
 	}

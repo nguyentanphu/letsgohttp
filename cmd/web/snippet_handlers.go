@@ -10,32 +10,15 @@ import (
 	"strconv"
 )
 
-var sessionStoreName = "Session-Store"
-
-type snippetTemplateData struct {
-	Snippets []*models.Snippet
-	Snippet  *models.Snippet
-	Form     snippetCreateForm
-	Flash    string
-}
-
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	snippets, err := app.snippets.Latest()
 	if err != nil {
 		app.serverError(w, err)
 		return
 	}
-	session, err := app.sessionStore.Get(r, sessionStoreName)
-	var flash string
-	if flashes := session.Flashes(); len(flashes) > 0 {
-		flash = flashes[0].(string)
-	}
-	templateData := snippetTemplateData{
-		Snippets: snippets,
-		Flash:    flash,
-	}
-	session.Save(r, w)
-	app.render(w, http.StatusOK, "home.tmpl.html", templateData)
+	td := app.newTemplateData(r, w)
+	td.Snippets = snippets
+	app.render(w, http.StatusOK, "home.tmpl.html", td)
 }
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
@@ -53,17 +36,9 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	session, err := app.sessionStore.Get(r, sessionStoreName)
-	var flash string
-	if flashes := session.Flashes(); len(flashes) > 0 {
-		flash = flashes[0].(string)
-	}
-	templateData := snippetTemplateData{
-		Snippet: snippet,
-		Flash:   flash,
-	}
-	session.Save(r, w)
-	app.render(w, http.StatusOK, "view.tmpl.html", templateData)
+	td := app.newTemplateData(r, w)
+	td.Snippet = snippet
+	app.render(w, http.StatusOK, "view.tmpl.html", td)
 }
 
 type snippetCreateForm struct {
@@ -85,7 +60,7 @@ func snippetErrorMessage(fe validator.FieldError) string {
 	return fe.Error()
 }
 
-func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
+func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
 	form := snippetCreateForm{
 		FieldErrors: make(map[string]string),
 	}
@@ -94,6 +69,7 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 		app.clientError(w, http.StatusBadRequest)
 		return
 	}
+
 	err = app.validate.Struct(form)
 	if err != nil {
 		var validErr validator.ValidationErrors
@@ -104,7 +80,8 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 					form.FieldErrors[fe.Field()] = snippetErrorMessage(fe)
 				}
 			}
-			data := snippetTemplateData{Form: form}
+			data := app.newTemplateData(r, w)
+			data.Form = form
 			app.render(w, http.StatusUnprocessableEntity, "create.tmpl.html", data)
 		}
 		return
@@ -116,16 +93,16 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, _ := app.sessionStore.Get(r, sessionStoreName)
+	session, _ := app.sessionStore.Get(r, sessionName)
 	session.AddFlash("Snippet successfully created!")
 	session.Save(r, w)
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
 }
 
-func (app *application) snippetCreateForm(w http.ResponseWriter, r *http.Request) {
-	data := snippetTemplateData{
-		Form: snippetCreateForm{
-			Expires: 365,
-		}}
+func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r, w)
+	data.Form = snippetCreateForm{
+		Expires: 365,
+	}
 	app.render(w, http.StatusOK, "create.tmpl.html", data)
 }

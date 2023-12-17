@@ -2,13 +2,15 @@ package main
 
 import (
 	"html/template"
+	"io/fs"
+	"letsgohttp/ui"
 	"path/filepath"
 )
 
 func newTemplateCache() (map[string]*template.Template, error) {
 	cache := make(map[string]*template.Template)
 
-	pages, err := filepath.Glob("./ui/html/pages/*.tmpl.html")
+	pages, err := fs.Glob(ui.Files, "html/pages/*.tmpl.html")
 	if err != nil {
 		return nil, err
 	}
@@ -16,17 +18,15 @@ func newTemplateCache() (map[string]*template.Template, error) {
 	for _, page := range pages {
 		name := filepath.Base(page)
 
-		ts, err := template.ParseFiles("./ui/html/base.tmpl.html")
-		if err != nil {
-			return nil, err
+		patterns := []string{
+			"html/base.tmpl.html",
+			"html/partials/*.tmpl.html",
+			page,
 		}
 
-		ts, err = ts.ParseGlob("./ui/html/partials/*.tmpl.html")
-		if err != nil {
-			return nil, err
-		}
-
-		ts, err = ts.ParseFiles(page)
+		// Use ParseFS() instead of ParseFiles() to parse the template files
+		// from the ui.Files embedded filesystem.
+		ts, err := template.New(name).ParseFS(ui.Files, patterns...)
 		if err != nil {
 			return nil, err
 		}
@@ -36,3 +36,16 @@ func newTemplateCache() (map[string]*template.Template, error) {
 
 	return cache, nil
 }
+
+type Constraints interface {
+	int | float64 | ~string
+}
+
+func min[T Constraints](x, y T) T {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+var a = min(2, 3.5)
