@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"github.com/go-playground/validator/v10"
 	"github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
 	"strings"
@@ -65,7 +66,7 @@ func (userModel *UserModel) Authenticate(email, password string) (int, error) {
 	return id, nil
 }
 
-func (userModel *UserModel) emailExists(email string) (bool, error) {
+func (userModel *UserModel) EmailExists(email string) (bool, error) {
 	count := 0
 	stmt := `SELECT COUNT(*) FROM users WHERE email=?`
 	err := userModel.DB.QueryRow(stmt, email).Scan(&count)
@@ -80,4 +81,12 @@ func (m *UserModel) Exists(id int) (bool, error) {
 	stmt := "SELECT EXISTS(SELECT true FROM users WHERE id = ?)"
 	err := m.DB.QueryRow(stmt, id).Scan(&exists)
 	return exists, err
+}
+
+type UserModelInterface interface {
+	Insert(name, email, password string) error
+	Authenticate(email, password string) (int, error)
+	EmailExists(email string) (bool, error)
+	Exists(id int) (bool, error)
+	UniqueEmailValidator(fl validator.FieldLevel) bool
 }
